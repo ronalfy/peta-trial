@@ -77,9 +77,10 @@ class PETA_TRIAL {
 		$websites = get_option( 'peta-trial' );
 		if ( empty( $websites ) || false == $websites ) return;
 		$posts = array();
-		$all_posts = array();
+		$valid_websites = array();
 		// Perform URL validation check and do a remote post to retrieve posts
 		foreach( $websites as $url ) {
+			if ( empty( $url ) ) continue;
 			if ( false !== wp_http_validate_url( $url ) ) {
 				$json_url = $url . '/wp-json/peta/v1/get_posts/10';
 				$response = wp_remote_get( $json_url );
@@ -91,8 +92,22 @@ class PETA_TRIAL {
 							$posts[] = $post;
 						}
 					}
+					$valid_websites[] = $url;
 				}
 			}
+		}
+		if ( ! empty ( $valid_websites ) ) {
+		?>
+			<p><?php esc_html_e( 'Sort by website:', 'peta-trial' ); ?>
+			<select name="peta-websites" id="peta-websites">
+				<option name="all"><?php esc_html_e( 'Show all', 'peta-trial' ); ?></option>
+				<?php
+				foreach( $valid_websites as $website ) {
+					printf( '<option name="%s">%s</option>', esc_attr( $website ), esc_url( $website ) );
+				}
+				?>
+			</select>
+		<?php
 		}
 		if ( empty( $posts ) ) {
 			?>
@@ -106,7 +121,7 @@ class PETA_TRIAL {
 
 		echo '<ul class="peta-dashboard-posts">';
 		foreach( $posts as $post ) {
-			printf( '<li><a href="%s">%s</a> - <a href="#" class="peta-approve">%s</a>', esc_url( $post->permalink ), esc_html( $post->post_title ), esc_html__( 'Approve', 'peta-trial' ) );
+			printf( '<li><a href="%s">%s</a> - <a href="#" class="peta-approve" data-id="%d" >%s</a>', esc_url( $post->permalink ), esc_html( $post->post_title ), absint( $post->ID ), esc_html__( 'Approve', 'peta-trial' ) );
 		}
 		echo '</ul>';
 	}
