@@ -23,6 +23,16 @@ class PETA_TRIAL {
 		return self::$instance;
 	} //end get_instance
 
+	/**
+	 * General plugin initialization and text domain init.
+	 *
+	 * General plugin initialization and text domain init.
+	 *
+	 * @since 1.0.0
+	 * @access private
+	 *
+	 * @return void
+	 */
 	private function __construct() {
 		add_action( 'init', array( $this, 'init' ), 9 );
 
@@ -31,28 +41,80 @@ class PETA_TRIAL {
 
 	} //end constructor
 
+	/**
+	 * General plugin initialization.
+	 *
+	 * General plugin initialization.
+	 *
+	 * @since 1.0.0
+	 * @access public
+	 *
+	 * @see __construct
+	 *
+	 * @return void
+	 */
 	public function init() {
 		add_action( 'admin_menu', array( $this, 'peta_admin_menu_init') );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
+		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
+
 		//Plugin settings
 		add_filter( 'plugin_action_links_' . plugin_basename(__FILE__) , array( $this, 'add_settings_link' ) );
 	} //end init
 
+	/**
+	 * Add settings link to the plugin screen.
+	 *
+	 * Add settings link to the plugin screen.
+	 *
+	 * @since 1.0.0
+	 * @access public
+	 *
+	 * @see init
+	 *
+	 * @param array $links Array of setting links for the plugin
+	 * @return array $links New array of settings links
+	 */
 	public function add_settings_link( $links ) {
 		$settings_link = sprintf( '<a href="%s">%s</a>', esc_url( admin_url( 'options-general.php?page=peta-urls' ) ), _x( 'Settings', 'Plugin settings link on the plugins page', 'peta-trial' ) );
 		array_unshift($links, $settings_link);
 		return $links;
 	}
 
+	/**
+	 * Register the options page.
+	 *
+	 * Register the options page.
+	 *
+	 * @since 1.0.0
+	 * @access public
+	 *
+	 * @see init
+	 *
+	 * @return void
+	 */
 	public function peta_admin_menu_init() {
 		add_options_page( 'PETA Urls', 'PETA Urls', 'manage_options', 'peta-urls', array( $this, 'options_page') );
 	}
 
+	/**
+	 * Output the optiosn page for the plugin.
+	 *
+	 * Output the options page for the plugin..
+	 *
+	 * @since 1.0.0
+	 * @access public
+	 *
+	 * @see peta_admin_menu_init
+	 *
+	 * @return void
+	 */
 	public function options_page() {
 		?>
 		<div class="wrap">
 		<h1><?php esc_html_e( 'PETA Urls', 'peta-trial' ); ?></h1>
 		<p><?php esc_html_e( 'These URLs will pull posts and display them on your dashboard', 'peta-trial' ); ?>
+		<p><?php printf( esc_html__( 'URLs must ping the site\'s REST API and should look like this without a forward slash: %s' ), 'https://sitename.com' ); ?>
 		<form action="<?php echo esc_url( admin_url( 'options.php' ) ); ?>" method="POST">
 			<?php settings_fields( 'peta-trial' ); ?>
 			<?php do_settings_sections( 'peta-trial' ); ?>
@@ -61,15 +123,38 @@ class PETA_TRIAL {
 		<?php
 	}
 
+	/**
+	 * Register the settings for the plugin.
+	 *
+	 * Register the settings for the plugin using the settings API.
+	 *
+	 * @since 1.0.0
+	 * @access public
+	 *
+	 * @see init
+	 *
+	 * @return void
+	 */
 	public function register_settings() {
 		register_setting( 'peta-trial', 'peta-trial', array( $this, 'sanitization' ) );
 		add_settings_section( 'peta-urls', _x( 'URLs to Display', 'plugin settings heading' , 'peta-trial' ), array( $this, 'settings_section' ), 'peta-trial' );
 		add_settings_field( 'peta-show-urls', __( 'Enter URLs', 'peta-trial' ), array( $this, 'add_settings_field_urls' ), 'peta-trial', 'peta-urls', array( 'desc' => __( 'Choose WordPress URLs to pull posts from.', 'peta-trial' ) ) );
 	}
 
+	/**
+	 * Output HTML settings.
+	 *
+	 * Output HTML setings.
+	 *
+	 * @since 1.0.0
+	 * @access public
+	 *
+	 * @see register_settings
+	 *
+	 * @return void
+	 */
 	public function add_settings_field_urls() {
 		$settings = get_option( 'peta-trial' );
-		echo '<pre>' . print_r( $settings, true ) . '</pre>';
 		$url_1 = isset( $settings[ 'url_1' ] ) ? $settings[ 'url_1' ] : '';
 		$url_2 = isset( $settings[ 'url_2' ] ) ? $settings[ 'url_2' ] : '';
 		$url_3 = isset( $settings[ 'url_3' ] ) ? $settings[ 'url_3' ] : '';
@@ -116,15 +201,54 @@ class PETA_TRIAL {
 	 */
 	public function sanitization( $input = array() ) {
 		$output = get_option( 'peta-trial' );
-		$output['url_1'] = esc_url( $input['url_1'] );
-		$output['url_2'] = esc_url( $input['url_2'] );
-		$output['url_3'] = esc_url( $input['url_3'] );
-		$output['url_4'] = esc_url( $input['url_4'] );
-		$output['url_5'] = esc_url( $input['url_5'] );
+		$output['url_1'] = esc_url( rtrim( '/', $input['url_1'] ) );
+		$output['url_2'] = esc_url( rtrim( '/', $input['url_2'] ) );
+		$output['url_3'] = esc_url( rtrim( '/', $input['url_3'] ) );
+		$output['url_4'] = esc_url( rtrim( '/', $input['url_4'] ) );
+		$output['url_5'] = esc_url( rtrim( '/', $input['url_5'] ) );
 		return $output;
 	}
 
-} //end class Simple_Comment_Editing
+	/**
+	 * Register a route to save approval messsage.
+	 *
+	 * Register a route to save approval message as post meta.
+	 *
+	 * @since 1.0.0
+	 * @access public
+	 *
+	 * @see init
+	 *
+	 * @return void
+	 */
+	public function register_routes() {
+		register_rest_route( 'peta/v1', '/approve/(?P<id>\d+)/(?P<username>[-_a-zA-Z0-9])', array(
+			'methods' => 'GET',
+			'callback' => array( $this, 'set_approval' ),
+		) );
+	}
+
+	/**
+	 * Register a route to save approval messsage.
+	 *
+	 * Register a route to save approval message as post meta.
+	 *
+	 * @since 1.0.0
+	 * @access public
+	 *
+	 * @see register_routes
+	 *
+	 * @return void
+	 */
+	public function set_approval( $request ) {
+		$post_id = absint( $request['id'] );
+		$username = sanitize_text_field( $request['username']);
+		update_post_meta( $post_id, 'peta-approved', true );
+		update_post_meta( $post_id, 'peta-username', $username );
+		update_post_meta( $post_id, 'peta-date', current_time( 'mysql' ) );
+	}
+
+} //end class PETA_TRIAL
 
 add_action( 'plugins_loaded', 'peta_instanciate' );
 function peta_instanciate() {
