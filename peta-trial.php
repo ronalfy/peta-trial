@@ -36,10 +36,58 @@ class PETA_TRIAL {
 	private function __construct() {
 		add_action( 'init', array( $this, 'init' ), 9 );
 
+		add_action( 'wp_dashboard_setup', array( $this, 'dashboard_widget_setup' ) );
+
 		//* Localization Code */
 		load_plugin_textdomain( 'peta-trial', false, dirname( plugin_basename( __FILE__ ) ) . '/languages/' );
 
 	} //end constructor
+
+	/**
+	 * Set up and initialize dashboard widget.
+	 *
+	 * Set up and initialize dashboard widget.
+	 *
+	 * @since 1.0.0
+	 * @access private
+	 * @see __construct
+	 *
+	 * @return void
+	 */
+	public function dashboard_widget_setup() {
+		wp_add_dashboard_widget(
+			'peta-widget-title',
+			__( 'Website Posts', 'peta-trial' ),
+			array( $this, 'dashboard_widget_output' )
+		);
+	}
+
+	/**
+	 * Output Dashboard Widget.
+	 *
+	 * Output Dashboard Widget.
+	 *
+	 * @since 1.0.0
+	 * @access private
+	 * @see dashboard_widget_setup
+	 *
+	 * @return void
+	 */
+	public function dashboard_widget_output() {
+		$websites = get_option( 'peta-trial' );
+		if ( empty( $websites ) || false == $websites ) return;
+		$posts = array();
+
+		// Perform URL validation check and do a remote post to retrieve posts
+		foreach( $websites as $url ) {
+			if ( false !== wp_http_validate_url( $url ) ) {
+				$json_url = $url . '/wp-json/wp/v2/posts/peta/10';
+				die ($json_url );
+				$response = wp_remote_get( $json_url );
+				die('<pre>' . print_r( $response, true ) );
+			}
+		}
+	}
 
 	/**
 	 * General plugin initialization.
@@ -222,10 +270,50 @@ class PETA_TRIAL {
 	 * @return void
 	 */
 	public function register_routes() {
-		register_rest_route( 'peta/v1', '/approve/(?P<id>\d+)/(?P<username>[-_a-zA-Z0-9])', array(
+		register_rest_route( 'peta/v1', '/get_posts/(?P<posts_per_page>\d+)', array(
+			'methods' => 'GET',
+			'callback' => array( $this, 'rest_api_get_posts' ),
+		) );
+		register_rest_route( 'peta/v1', '/approve/(?P<id>\d+)/(?P<username>[-_a-zA-Z0-9]+)', array(
 			'methods' => 'GET',
 			'callback' => array( $this, 'set_approval' ),
 		) );
+	}
+
+	/**
+	 * Custom query for retrieving posts using the REST API.
+	 *
+	 * Custom query for retrieving posts using the REST API.
+	 *
+	 * @since 1.0.0
+	 * @access public
+	 *
+	 * @see register_routes
+	 *
+	 * @param REST_Object $request
+	 * @return array
+	 */
+	public function rest_api_get_posts( $request ) {
+		error_log( print_r( $object, true ) );
+		$posts_per_page = absint( $object['posts_per_page'] );
+		$post_query_args = array(
+			'post_type' => 'post',
+			'order' => 'DESC',
+			'post_status' => 'publish',
+			'posts_per_page' => $posts_per_page,
+			'orderby' => 'date',
+			'meta_query' => array(
+				array(
+					'key' => 'peta-approved',
+					'compare' => 'NOT EXISTS'
+				)
+			),
+		);
+		$posts = new WP_Query( $post_query_args );
+		if ( $posts->have_posts() ) {
+			return $posts;
+		}
+		return array();
 	}
 
 	/**
