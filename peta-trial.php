@@ -77,16 +77,38 @@ class PETA_TRIAL {
 		$websites = get_option( 'peta-trial' );
 		if ( empty( $websites ) || false == $websites ) return;
 		$posts = array();
-
+		$all_posts = array();
 		// Perform URL validation check and do a remote post to retrieve posts
 		foreach( $websites as $url ) {
 			if ( false !== wp_http_validate_url( $url ) ) {
-				$json_url = $url . '/wp-json/wp/v2/posts/peta/10';
-				die ($json_url );
+				$json_url = $url . '/wp-json/peta/v1/get_posts/10';
 				$response = wp_remote_get( $json_url );
-				die('<pre>' . print_r( $response, true ) );
+				if ( ! is_wp_error( $response ) ) {
+					$body = wp_remote_retrieve_body( $response );
+					$body = json_decode( $body );
+					foreach( $body as $post ) {
+						if ( isset( $post->ID ) ) {
+							$posts[] = $post;
+						}
+					}
+				}
 			}
 		}
+		if ( empty( $posts ) ) {
+			?>
+			<p><?php esc_html_e( 'There are no posts to display', 'peta-trial' ); ?></p>
+			<?php
+		}
+
+		// Randomize posts and trim to 10
+		shuffle( $posts );
+		$posts = array_slice( $posts, 0, 10 );
+
+		echo '<ul class="peta-dashboard-posts">';
+		foreach( $posts as $post ) {
+			printf( '<li><a href="%s">%s</a> - <a href="#" class="peta-approve">%s</a>', esc_url( $post->permalink ), esc_html( $post->post_title ), esc_html__( 'Approve', 'peta-trial' ) );
+		}
+		echo '</ul>';
 	}
 
 	/**
@@ -294,7 +316,6 @@ class PETA_TRIAL {
 	 * @return array
 	 */
 	public function rest_api_get_posts( $request ) {
-		error_log( print_r( $object, true ) );
 		$posts_per_page = absint( $object['posts_per_page'] );
 		$post_query_args = array(
 			'post_type' => 'post',
@@ -309,8 +330,12 @@ class PETA_TRIAL {
 				)
 			),
 		);
-		$posts = new WP_Query( $post_query_args );
-		if ( $posts->have_posts() ) {
+		$query = new WP_Query( $post_query_args );
+		if ( $query->have_posts() ) {
+			$posts = $query->posts;
+			foreach( $posts as &$post ) {
+				$post->permalink = get_permalink( $post->ID );
+			}
 			return $posts;
 		}
 		return array();
