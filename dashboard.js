@@ -17,17 +17,16 @@ jQuery( document ).ready( function($) {
 
 	$( '.peta-dashboard-posts' ).on( 'click', function( e ) {
 		e.preventDefault();
-		var post_id = $(e.target).data('id');
-		var website = $(e.target).data('website');
+		$target = $(e.target);
+		var post_id = $target.data('id');
+		var website = $target.data('website');
+		$target.parent().remove();
 		$.post( ajaxurl, {
 			action: 'peta_approve_website',
 			post_id: post_id,
 			website: website,
 		},
 		function( response ) {
-			if ( response.has_posts ) {
-				$('.peta-dashboard-posts').html( response.posts );
-			}
 		},
 		'json'
 	);

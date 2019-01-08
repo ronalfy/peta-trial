@@ -4,14 +4,14 @@ Plugin Name: Peta Trial
 Plugin URI: https://github.com/ronalfy/peta-trial
 Description: Use the REST API to grab posts and display in a dashboard widget.
 Author: Ronald Huereca
-Version: 1.0.0
+Version: 1.0.5
 Requires at least: 4.9
 Author URI: https://mediaron.com
 Contributors: ronalfy
 Text Domain: peta-trial
 Domain Path: /languages
 */
-define('PETA_VERSION', '1.0.3');
+define('PETA_VERSION', '1.0.5');
 class PETA_TRIAL {
 	private static $instance = null;
 
@@ -121,13 +121,22 @@ class PETA_TRIAL {
 
 		echo '<ul class="peta-dashboard-posts">';
 		foreach( $posts as $post ) {
-			printf( '<li><a href="%s">%s</a> - <a href="#" class="peta-approve" data-id="%d" data-website="%d" >%s</a>', esc_url( $post->permalink ), esc_html( $post->post_title ), absint( $post->ID ), esc_url( $post->website ),  esc_html__( 'Approve', 'peta-trial' ) );
+			printf( '<li><a href="%s">%s</a> - <a href="#" class="peta-approve" data-id="%d" data-website="%s" >%s</a>', esc_url( $post->permalink ), esc_html( $post->post_title ), absint( $post->ID ), esc_url( $post->website ),  esc_html__( 'Approve', 'peta-trial' ) );
 		}
 		echo '</ul>';
 	}
 
 	public function ajax_approve_website() {
-
+		$url = wp_http_validate_url( $_REQUEST['website'] );
+		$post_id = absint( $_REQUEST['post_id'] );
+		$user = wp_get_current_user();
+		$user_id = $user->ID;
+		$json_url = $url . '/wp-json/peta/v1/approve/' . $user_id;
+		$response = wp_remote_get( $json_url );
+		if ( ! is_wp_error( $response ) ) {
+			wp_send_json( array() );
+		}
+		wp_send_json( array() );
 	}
 
 	public function ajax_filter_websites() {
@@ -157,8 +166,9 @@ class PETA_TRIAL {
 		$posts = array_slice( $posts, 0, 10 );
 
 		$html ='';
+
 		foreach( $posts as $post ) {
-			$html .= sprintf( '<li><a href="%s">%s</a> - <a href="#" class="peta-approve" data-id="%d" >%s</a>', esc_url( $post->permalink ), esc_html( $post->post_title ), absint( $post->ID ), esc_html__( 'Approve', 'peta-trial' ) );
+			$html .= sprintf( '<li><a href="%s">%s</a> - <a href="#" class="peta-approve" data-id="%d" data-website="%s" >%s</a>', esc_url( $post->permalink ), esc_html( $post->post_title ), absint( $post->ID ), esc_url( $post->website ),  esc_html__( 'Approve', 'peta-trial' ) );
 		}
 		wp_send_json( array( 'has_posts' => true, 'posts' => $html ) );
 	}
