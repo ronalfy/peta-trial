@@ -11,7 +11,7 @@ Contributors: ronalfy
 Text Domain: peta-trial
 Domain Path: /languages
 */
-define('PETA_VERSION', '2.3.3');
+define('PETA_VERSION', '1.0.3');
 class PETA_TRIAL {
 	private static $instance = null;
 
@@ -121,9 +121,46 @@ class PETA_TRIAL {
 
 		echo '<ul class="peta-dashboard-posts">';
 		foreach( $posts as $post ) {
-			printf( '<li><a href="%s">%s</a> - <a href="#" class="peta-approve" data-id="%d" >%s</a>', esc_url( $post->permalink ), esc_html( $post->post_title ), absint( $post->ID ), esc_html__( 'Approve', 'peta-trial' ) );
+			printf( '<li><a href="%s">%s</a> - <a href="#" class="peta-approve" data-id="%d" data-website="%d" >%s</a>', esc_url( $post->permalink ), esc_html( $post->post_title ), absint( $post->ID ), esc_url( $post->website ),  esc_html__( 'Approve', 'peta-trial' ) );
 		}
 		echo '</ul>';
+	}
+
+	public function ajax_approve_website() {
+
+	}
+
+	public function ajax_filter_websites() {
+		$url = wp_http_validate_url( $_REQUEST['website'] );
+		$posts = array();
+		if ( false === $url ) {
+			wp_send_json( array( 'has_posts' => false, 'posts' => '' ) );
+		}
+
+		$json_url = $url . '/wp-json/peta/v1/get_posts/10';
+		$response = wp_remote_get( $json_url );
+		if ( ! is_wp_error( $response ) ) {
+			$body = wp_remote_retrieve_body( $response );
+			$body = json_decode( $body );
+			foreach( $body as $post ) {
+				if ( isset( $post->ID ) ) {
+					$posts[] = $post;
+				}
+			}
+		}
+
+		if ( empty( $posts ) ) {
+			wp_send_json( array( 'has_posts' => false, 'posts' => '' ) );
+		}
+
+		// Randomize posts and trim to 10
+		$posts = array_slice( $posts, 0, 10 );
+
+		$html ='';
+		foreach( $posts as $post ) {
+			$html .= sprintf( '<li><a href="%s">%s</a> - <a href="#" class="peta-approve" data-id="%d" >%s</a>', esc_url( $post->permalink ), esc_html( $post->post_title ), absint( $post->ID ), esc_html__( 'Approve', 'peta-trial' ) );
+		}
+		wp_send_json( array( 'has_posts' => true, 'posts' => $html ) );
 	}
 
 	/**
@@ -142,10 +179,20 @@ class PETA_TRIAL {
 		add_action( 'admin_menu', array( $this, 'peta_admin_menu_init') );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'register_scripts_and_styles' ) );
+		add_action( 'wp_ajax_peta_filter_websites', array( $this, 'ajax_filter_websites' ) );
+		add_action( 'wp_ajax_peta_approve_website', array( $this, 'ajax_approve_website' ) );
 
 		//Plugin settings
 		add_filter( 'plugin_action_links_' . plugin_basename(__FILE__) , array( $this, 'add_settings_link' ) );
 	} //end init
+
+	public function register_scripts_and_styles() {
+		global $screen;
+		if ( isset( $screen->id ) && 'dashboard' === $screen->id ) {
+			wp_enqueue_script( 'peta-dashboard', plugins_url( 'dashboard.js', __FILE__ ), array( 'jquery' ), PETA_VERSION, true );
+		}
+	}
 
 	/**
 	 * Add settings link to the plugin screen.
@@ -350,6 +397,7 @@ class PETA_TRIAL {
 			$posts = $query->posts;
 			foreach( $posts as &$post ) {
 				$post->permalink = get_permalink( $post->ID );
+				$post->website = home_url();
 			}
 			return $posts;
 		}
